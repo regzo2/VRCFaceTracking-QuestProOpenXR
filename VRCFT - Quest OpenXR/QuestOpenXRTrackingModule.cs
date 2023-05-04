@@ -133,7 +133,8 @@ namespace VRCFT_Module___QuestOpenXR
             var stream = GetType().Assembly.GetManifestResourceStream("VRCFT___Quest_OpenXR.Assets.quest-pro.png");
             ModuleInformation.StaticImages = stream != null ? new List<Stream> { stream } : ModuleInformation.StaticImages;
 
-            SetDllDirectory(Utils.CustomLibsDirectory + "\\ModuleLibs");
+            var currentDllDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            SetDllDirectory(currentDllDirectory + "\\ModuleLibs");
 
             int RuntimeInitResult = InitOpenXRRuntime();
             switch (RuntimeInitResult)
@@ -200,13 +201,13 @@ namespace VRCFT_Module___QuestOpenXR
         // This will be run in the tracking thread. This is exposed so you can control when and if the tracking data is updated down to the lowest level.
         public override void Update()
         {
+            Thread.Sleep(10);
             UpdateTracking();
         }
 
         // The update function needs to be defined separately in case the user is running with the --vrcft-nothread launch parameter
         public void UpdateTracking()
         {
-            
             int updateResult = UpdateOpenXRFaceTracker();
             
             GetFaceWeights(FaceExpressionFB);
@@ -226,16 +227,11 @@ namespace VRCFT_Module___QuestOpenXR
         {
             #region Eye Openness parsing
 
-            //eye.Left.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_L] + Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_L] - expressions[(int)FBExpression.Eyes_Closed_R])));
             eye.Left.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_L] + 
-                //expressions[(int)FBExpression.Eyes_Closed_L] * (-Math.Pow(expressions[(int)FBExpression.Lid_Tightener_L] - 0.5f, 2) + 0.5f)));
-                expressions[(int)FBExpression.Eyes_Closed_L] * (2f * expressions[(int)FBExpression.Lid_Tightener_L] / Math.Pow(2f, 2f * expressions[(int)FBExpression.Lid_Tightener_L]))));
+                expressions[(int)FBExpression.Eyes_Closed_L] * expressions[(int)FBExpression.Lid_Tightener_L]));
 
             eye.Right.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_R] +
-                //expressions[(int)FBExpression.Eyes_Closed_R] * (-Math.Pow(expressions[(int)FBExpression.Lid_Tightener_R] - 0.5f, 2) + 0.5f)));
-                expressions[(int)FBExpression.Eyes_Closed_R] * (2f * expressions[(int)FBExpression.Lid_Tightener_R] / Math.Pow(2f, 2f * expressions[(int)FBExpression.Lid_Tightener_R]))));
-            //eye.Right.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_R] + Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_R] - expressions[(int)FBExpression.Eyes_Closed_L])));
-
+                expressions[(int)FBExpression.Eyes_Closed_R] * expressions[(int)FBExpression.Lid_Tightener_R]));
             #endregion
 
             #region Eye Gaze parsing
@@ -382,8 +378,8 @@ namespace VRCFT_Module___QuestOpenXR
             unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerLeft].Weight = expressions[(int)FBExpression.Lip_Funneler_LB];
             unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerRight].Weight = expressions[(int)FBExpression.Lip_Funneler_RB];
 
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = expressions[(int)FBExpression.Lip_Suck_LT];
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = expressions[(int)FBExpression.Lip_Suck_RT];
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = Math.Min(1f - (float)Math.Pow(expressions[(int)FBExpression.Upper_Lip_Raiser_L], 1f/6f), expressions[(int)FBExpression.Lip_Suck_LT]);
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = Math.Min(1f - (float)Math.Pow(expressions[(int)FBExpression.Upper_Lip_Raiser_R], 1f/6f), expressions[(int)FBExpression.Lip_Suck_RT]);
             unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerLeft].Weight = expressions[(int)FBExpression.Lip_Suck_LB];
             unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerRight].Weight = expressions[(int)FBExpression.Lip_Suck_RB];
             #endregion
