@@ -1,6 +1,6 @@
 {
   "ModuleId": "e90de1b0-1d67-4d5b-b517-597043fa3852",
-  "AuthorName": "TofuLemon",
+  "AuthorName": "TofuLemon and dfgHiatus",
   "DllFileName": "VRCFT - Quest OpenXR.dll",
   "Downloads": 16,
   "DownloadUrl": "https://github.com/regzo2/VRCFaceTracking-QuestProOpenXR/releases/download/1.1.0/QuestProLinkModule.zip",
@@ -12,5 +12,5 @@
   "Ratings": 0,
   "RatingSum": 0,
   "UsageInstructions": "Follow instructions on docs.vrcft.io website for the Quest Pro module. Once the Quest Pro is setup simply launch the Oculus runtime and use with VRCFaceTracking!",
-  "Version": "1.1"
+  "Version": "1.2"
 }
