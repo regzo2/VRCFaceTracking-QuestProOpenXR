@@ -216,9 +216,10 @@ namespace VRCFT_Module___QuestOpenXR
                 expressions[i] = FaceExpressionFB[i];
             }
 
-            if (trackingSupported.Item1)
+            if (trackingSupported.Item1){
                 UpdateEyeData(ref UnifiedTracking.Data.Eye, ref expressions);
                 UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
+			}
             if (trackingSupported.Item2)
                 UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
         }
