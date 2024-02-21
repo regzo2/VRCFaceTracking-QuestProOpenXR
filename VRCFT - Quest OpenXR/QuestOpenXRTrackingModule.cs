@@ -127,7 +127,7 @@ namespace Quest_OpenXR
                 UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
         }
 
-        private static Vector2 NormalizedGaze(XrQuat q)
+        private Vector2 NormalizedGaze(XrQuat q)
         {
             float magnitude = (float)Math.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
             q.x /= magnitude;
@@ -135,13 +135,10 @@ namespace Quest_OpenXR
             q.z /= magnitude;
             q.w /= magnitude;
 
-            float pitch = (float)Math.Asin(2f * (q.w * q.y - q.z * q.x));
-            float yaw = (float)Math.Atan2(2f * (q.w * q.z + q.x * q.y), 1 - 2f * (q.y * q.y + q.z * q.z));
+            float pitch = (float)Math.Asin(2*(q.x*q.z - q.w*q.y));
+            float yaw = (float)Math.Atan2(2.0*(q.y*q.z + q.w*q.x), q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z);
 
-            float x = (float)Math.Cos(yaw); // cartesian unit accepted by VRCFT
-            float y = (float)Math.Cos(pitch);
-
-            return new Vector2(x, y);
+            return new Vector2(pitch, yaw);
         }
 
         private void UpdateEyeData(ref UnifiedEyeData eye, ref float[] expressions)
