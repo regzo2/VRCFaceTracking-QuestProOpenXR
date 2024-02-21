@@ -14,107 +14,12 @@ using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Reflection;
+using static Quest_OpenXR.OpenXR;
 
-namespace VRCFT_Module___QuestOpenXR
+namespace Quest_OpenXR
 {
-    public enum FBExpression
-    {
-        Brow_Lowerer_L = 0,
-        Brow_Lowerer_R = 1,
-        Cheek_Puff_L = 2,
-        Cheek_Puff_R = 3,
-        Cheek_Raiser_L = 4,
-        Cheek_Raiser_R = 5,
-        Cheek_Suck_L = 6,
-        Cheek_Suck_R = 7,
-        Chin_Raiser_B = 8,
-        Chin_Raiser_T = 9,
-        Dimpler_L = 10,
-        Dimpler_R = 11,
-        Eyes_Closed_L = 12,
-        Eyes_Closed_R = 13,
-        Eyes_Look_Down_L = 14,
-        Eyes_Look_Down_R = 15,
-        Eyes_Look_Left_L = 16,
-        Eyes_Look_Left_R = 17,
-        Eyes_Look_Right_L = 18,
-        Eyes_Look_Right_R = 19,
-        Eyes_Look_Up_L = 20,
-        Eyes_Look_Up_R = 21,
-        Inner_Brow_Raiser_L = 22,
-        Inner_Brow_Raiser_R = 23,
-        Jaw_Drop = 24,
-        Jaw_Sideways_Left = 25,
-        Jaw_Sideways_Right = 26,
-        Jaw_Thrust = 27,
-        Lid_Tightener_L = 28,
-        Lid_Tightener_R = 29,
-        Lip_Corner_Depressor_L = 30,
-        Lip_Corner_Depressor_R = 31,
-        Lip_Corner_Puller_L = 32,
-        Lip_Corner_Puller_R = 33,
-        Lip_Funneler_LB = 34,
-        Lip_Funneler_LT = 35,
-        Lip_Funneler_RB = 36,
-        Lip_Funneler_RT = 37,
-        Lip_Pressor_L = 38,
-        Lip_Pressor_R = 39,
-        Lip_Pucker_L = 40,
-        Lip_Pucker_R = 41,
-        Lip_Stretcher_L = 42,
-        Lip_Stretcher_R = 43,
-        Lip_Suck_LB = 44,
-        Lip_Suck_LT = 45,
-        Lip_Suck_RB = 46,
-        Lip_Suck_RT = 47,
-        Lip_Tightener_L = 48,
-        Lip_Tightener_R = 49,
-        Lips_Toward = 50,
-        Lower_Lip_Depressor_L = 51,
-        Lower_Lip_Depressor_R = 52,
-        Mouth_Left = 53,
-        Mouth_Right = 54,
-        Nose_Wrinkler_L = 55,
-        Nose_Wrinkler_R = 56,
-        Outer_Brow_Raiser_L = 57,
-        Outer_Brow_Raiser_R = 58,
-        Upper_Lid_Raiser_L = 59,
-        Upper_Lid_Raiser_R = 60,
-        Upper_Lip_Raiser_L = 61,
-        Upper_Lip_Raiser_R = 62,
-        Max = 63
-    }
-
     public class QuestProTrackingModule : ExtTrackingModule
     {
-        [StructLayout(LayoutKind.Sequential)]
-        class XrQuat
-        {
-            public float x;
-            public float y;
-            public float z;
-            public float w;
-        }
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern int InitOpenXRRuntime();
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern int UpdateOpenXRFaceTracker();
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern float GetCheekPuff(int cheekIndex);
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern void GetEyeOrientation(int eyeIndex, XrQuat outOrientation);
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern void GetFaceWeights([MarshalAs(UnmanagedType.LPArray, SizeConst = 63)] float[] faceExpressionFB);
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        private static extern bool SetDllDirectory(string lpPathName);
-
-
         private const int expressionsSize = 63;
         private byte[] rawExpressions = new byte[expressionsSize * 4 + (8 * 2 * 4)];
         private float[] expressions = new float[expressionsSize + (8 * 2)];
@@ -223,6 +128,20 @@ namespace VRCFT_Module___QuestOpenXR
                 UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
         }
 
+        private static Vector2 NormalizedGaze(XrQuat q)
+        {
+            float magnitude = (float)Math.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+            q.x /= magnitude;
+            q.y /= magnitude;
+            q.z /= magnitude;
+            q.w /= magnitude;
+
+            float pitch = (float)Math.Asin(2f * (q.w * q.y - q.z * q.x));
+            float yaw = (float)Math.Atan2(2f * (q.w * q.z + q.x * q.y), 1 - 2f * (q.y * q.y + q.z * q.z));
+        
+            return new Vector2(pitch, yaw).PolarTo2DCartesian();
+        }
+
         private void UpdateEyeData(ref UnifiedEyeData eye, ref float[] expressions)
         {
             #region Eye Openness parsing
@@ -236,49 +155,18 @@ namespace VRCFT_Module___QuestOpenXR
 
             #region Eye Gaze parsing
 
-            XrQuat orientation_L = new XrQuat();
-            GetEyeOrientation(0, orientation_L);
-            double q_x = (float)orientation_L.x;
-            double q_y = (float)orientation_L.y;
-            double q_z = (float)orientation_L.z;
-            double q_w = (float)orientation_L.w;
+            XrQuat q_l = new XrQuat();
+            GetEyeOrientation(0, q_l);
 
-            double yaw = Math.Atan2(2.0 * (q_y * q_z + q_w * q_x), q_w * q_w - q_x * q_x - q_y * q_y + q_z * q_z);
-            double pitch = Math.Asin(-2.0 * (q_x * q_z - q_w * q_y));
-
-            double pitch_L = (180.0 / Math.PI) * pitch; // from radians
-            double yaw_L = (180.0 / Math.PI) * yaw;
-
-            XrQuat orientation_R = new XrQuat();
-            GetEyeOrientation(1, orientation_R);
-
-            q_x = (float)orientation_L.x;
-            q_y = (float)orientation_L.y;
-            q_z = (float)orientation_L.z;
-            q_w = (float)orientation_L.w;
-            yaw = Math.Atan2(2.0 * (q_y * q_z + q_w * q_x), q_w * q_w - q_x * q_x - q_y * q_y + q_z * q_z);
-            pitch = Math.Asin(-2.0 * (q_x * q_z - q_w * q_y));
-
-            double pitch_R = (180.0 / Math.PI) * pitch; // from radians
-            double yaw_R = (180.0 / Math.PI) * yaw;
+            XrQuat q_r = new XrQuat();
+            GetEyeOrientation(1, q_r);
 
             #endregion
 
             #region Eye Data to UnifiedEye
 
-            var radianConst = 0.0174533f;
-
-            var pitch_R_mod = (float)(Math.Abs(pitch_R) + 4f * Math.Pow(Math.Abs(pitch_R) / 30f, 30f)); // curves the tail end to better accomodate actual eye pos.
-            var pitch_L_mod = (float)(Math.Abs(pitch_L) + 4f * Math.Pow(Math.Abs(pitch_L) / 30f, 30f));
-            var yaw_R_mod = (float)(Math.Abs(yaw_R) + 6f * Math.Pow(Math.Abs(yaw_R) / 27f, 18f)); // curves the tail end to better accomodate actual eye pos.
-            var yaw_L_mod = (float)(Math.Abs(yaw_L) + 6f * Math.Pow(Math.Abs(yaw_L) / 27f, 18f));
-
-            eye.Right.Gaze = new Vector2(
-                pitch_R < 0 ? pitch_R_mod * radianConst : -1 * pitch_R_mod * radianConst,
-                yaw_R < 0 ? -1 * yaw_R_mod * radianConst : (float)yaw_R * radianConst);
-            eye.Left.Gaze = new Vector2(
-                pitch_L < 0 ? pitch_L_mod * radianConst : -1 * pitch_L_mod * radianConst,
-                yaw_L < 0 ? -1 * yaw_L_mod * radianConst : (float)yaw_L * radianConst);
+            eye.Right.Gaze = NormalizedGaze(q_r);
+            eye.Left.Gaze = NormalizedGaze(q_l);
 
             // Eye dilation code, automated process maybe?
             eye.Left.PupilDiameter_MM = 5f;
