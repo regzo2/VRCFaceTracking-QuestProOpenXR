@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <RootNamespace>Quest_OpenXR</RootNamespace>
+    <RootNamespace>Meta_OpenXR</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x64</Platforms>
@@ -30,6 +30,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\VRCFaceTracking\VRCFaceTracking.Core\VRCFaceTracking.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ModuleLibs\Meta-OpenXR-Bridge.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ModuleLibs\openxr_loader.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
