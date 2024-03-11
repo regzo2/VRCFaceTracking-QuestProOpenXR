@@ -14,6 +14,7 @@ using System.Drawing.Imaging;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Meta_OpenXR
 {
@@ -45,6 +46,10 @@ namespace Meta_OpenXR
             qxrResult result = QXR.InitializeSession();
             switch (result)
             {
+                case qxrResult.RUNTIME_FEATURE_UNAVAILABLE:
+                    Logger.LogError("Runtime does not have required features. " +
+                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
+                    return (false, false);
                 case qxrResult.SPACE_CREATE_FAILURE:
                     Logger.LogError("Runtime failed to create a reference space. " +
                                     "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
@@ -73,7 +78,7 @@ namespace Meta_OpenXR
                     return (false, false);
             }
 
-            trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker())
+            trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker());
 
             if (!trackingSupported.Item1)
                 Logger.LogError("Eye tracking is unavailable for this session.");
@@ -121,10 +126,12 @@ namespace Meta_OpenXR
         {
             #region Eye Openness parsing
 
-            eyes.Left.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_L] 
-                + expressions.weights[(int)FBExpression.Eyes_Closed_L] * expressions.weights[(int)FBExpression.Lid_Tightener_L]));
+            eyes.Left.Openness = 
+                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_L]
+                + expressions.weights[(int)FBExpression.Cheek_Raiser_L] * expressions.weights[(int)FBExpression.Lid_Tightener_L]));
 
-            eyes.Right.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_R] 
+            eyes.Right.Openness = 
+                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_R] 
                 + expressions.weights[(int)FBExpression.Eyes_Closed_R] * expressions.weights[(int)FBExpression.Lid_Tightener_R]));
 
             #endregion
