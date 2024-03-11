@@ -127,19 +127,19 @@ namespace Meta_OpenXR
             #region Eye Openness parsing
 
             eyes.Left.Openness = 
-                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_L]
-                + expressions.weights[(int)FBExpression.Cheek_Raiser_L] * expressions.weights[(int)FBExpression.Lid_Tightener_L]));
+                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)ExpressionFB.EYES_CLOSED_L]
+                + expressions.weights[(int)ExpressionFB.CHEEK_RAISER_L] * expressions.weights[(int)ExpressionFB.LID_TIGHTENER_L]));
 
             eyes.Right.Openness = 
-                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)FBExpression.Eyes_Closed_R] 
-                + expressions.weights[(int)FBExpression.Eyes_Closed_R] * expressions.weights[(int)FBExpression.Lid_Tightener_R]));
+                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)ExpressionFB.EYES_CLOSED_R] 
+                + expressions.weights[(int)ExpressionFB.CHEEK_RAISER_R] * expressions.weights[(int)ExpressionFB.LID_TIGHTENER_R]));
 
             #endregion
 
             #region Eye Data to UnifiedEye
 
-            eyes.Right.Gaze = NormalizedGaze(gazes.gaze[1].orientation);
-            eyes.Left.Gaze = NormalizedGaze(gazes.gaze[0].orientation);
+            eyes.Right.Gaze = NormalizedGaze(gazes.gaze[(int)EyePositionFB.EYE_POSITION_RIGHT].orientation);
+            eyes.Left.Gaze = NormalizedGaze(gazes.gaze[(int)EyePositionFB.EYE_POSITION_LEFT].orientation);
 
             // Eye dilation code, automated process maybe?
             eyes.Left.PupilDiameter_MM = 5f;
@@ -156,115 +156,114 @@ namespace Meta_OpenXR
         {
             #region Eye Expressions Set
 
-            unifiedExpressions[(int)UnifiedExpressions.EyeWideLeft].Weight = weights[(int)FBExpression.Upper_Lid_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.EyeWideRight].Weight = weights[(int)FBExpression.Upper_Lid_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.EyeWideLeft].Weight = weights[(int)ExpressionFB.UPPER_LID_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.EyeWideRight].Weight = weights[(int)ExpressionFB.UPPER_LID_RAISER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.EyeSquintLeft].Weight = weights[(int)FBExpression.Lid_Tightener_L];
-            unifiedExpressions[(int)UnifiedExpressions.EyeSquintRight].Weight = weights[(int)FBExpression.Lid_Tightener_R];
+            unifiedExpressions[(int)UnifiedExpressions.EyeSquintLeft].Weight = weights[(int)ExpressionFB.LID_TIGHTENER_L];
+            unifiedExpressions[(int)UnifiedExpressions.EyeSquintRight].Weight = weights[(int)ExpressionFB.LID_TIGHTENER_R];
 
             #endregion
 
             #region Brow Expressions Set
 
-            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpLeft].Weight = weights[(int)FBExpression.Inner_Brow_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpRight].Weight = weights[(int)FBExpression.Inner_Brow_Raiser_R];
-            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpLeft].Weight = weights[(int)FBExpression.Outer_Brow_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpRight].Weight = weights[(int)FBExpression.Outer_Brow_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpLeft].Weight = weights[(int)ExpressionFB.INNER_BROW_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpRight].Weight = weights[(int)ExpressionFB.INNER_BROW_RAISER_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpLeft].Weight = weights[(int)ExpressionFB.OUTER_BROW_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpRight].Weight = weights[(int)ExpressionFB.OUTER_BROW_RAISER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.BrowPinchLeft].Weight = weights[(int)FBExpression.Brow_Lowerer_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowLowererLeft].Weight = weights[(int)FBExpression.Brow_Lowerer_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowPinchRight].Weight = weights[(int)FBExpression.Brow_Lowerer_R];
-            unifiedExpressions[(int)UnifiedExpressions.BrowLowererRight].Weight = weights[(int)FBExpression.Brow_Lowerer_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowPinchLeft].Weight = weights[(int)ExpressionFB.BROW_LOWERER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowLowererLeft].Weight = weights[(int)ExpressionFB.BROW_LOWERER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowPinchRight].Weight = weights[(int)ExpressionFB.BROW_LOWERER_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowLowererRight].Weight = weights[(int)ExpressionFB.BROW_LOWERER_R];
 
             #endregion
         }
 
         private void UpdateMouthExpressions(ref UnifiedExpressionShape[] unifiedExpressions, ref float[] weights)
         {
-
             #region Jaw Expression Set                        
-            unifiedExpressions[(int)UnifiedExpressions.JawOpen].Weight = weights[(int)FBExpression.Jaw_Drop];
-            unifiedExpressions[(int)UnifiedExpressions.JawLeft].Weight = weights[(int)FBExpression.Jaw_Sideways_Left];
-            unifiedExpressions[(int)UnifiedExpressions.JawRight].Weight = weights[(int)FBExpression.Jaw_Sideways_Right];
-            unifiedExpressions[(int)UnifiedExpressions.JawForward].Weight = weights[(int)FBExpression.Jaw_Thrust];
+            unifiedExpressions[(int)UnifiedExpressions.JawOpen].Weight = weights[(int)ExpressionFB.JAW_DROP];
+            unifiedExpressions[(int)UnifiedExpressions.JawLeft].Weight = weights[(int)ExpressionFB.JAW_SIDEWAYS_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.JawRight].Weight = weights[(int)ExpressionFB.JAW_SIDEWAYS_RIGHT];
+            unifiedExpressions[(int)UnifiedExpressions.JawForward].Weight = weights[(int)ExpressionFB.JAW_THRUST];
             #endregion
 
             #region Mouth Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = weights[(int)FBExpression.Lips_Toward];
+            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = weights[(int)ExpressionFB.LIPS_TOWARD];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperLeft].Weight = weights[(int)FBExpression.Mouth_Left];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerLeft].Weight = weights[(int)FBExpression.Mouth_Left];
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperRight].Weight = weights[(int)FBExpression.Mouth_Right];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerRight].Weight = weights[(int)FBExpression.Mouth_Right];
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperRight].Weight = weights[(int)ExpressionFB.MOUTH_RIGHT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerRight].Weight = weights[(int)ExpressionFB.MOUTH_RIGHT];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullLeft].Weight = weights[(int)FBExpression.Lip_Corner_Puller_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantLeft].Weight = weights[(int)FBExpression.Lip_Corner_Puller_L]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullRight].Weight = weights[(int)FBExpression.Lip_Corner_Puller_R];
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantRight].Weight = weights[(int)FBExpression.Lip_Corner_Puller_R]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
-            unifiedExpressions[(int)UnifiedExpressions.MouthFrownLeft].Weight = weights[(int)FBExpression.Lip_Corner_Depressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthFrownRight].Weight = weights[(int)FBExpression.Lip_Corner_Depressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_L]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_R]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
+            unifiedExpressions[(int)UnifiedExpressions.MouthFrownLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_DEPRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthFrownRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_DEPRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownLeft].Weight = weights[(int)FBExpression.Lower_Lip_Depressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownRight].Weight = weights[(int)FBExpression.Lower_Lip_Depressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownLeft].Weight = weights[(int)ExpressionFB.LOWER_LIP_DEPRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownRight].Weight = weights[(int)ExpressionFB.LOWER_LIP_DEPRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpLeft].Weight = Math.Max(weights[(int)FBExpression.Upper_Lip_Raiser_L], 
-                                                                                           weights[(int)FBExpression.Nose_Wrinkler_L]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenLeft].Weight = Math.Max(weights[(int)FBExpression.Upper_Lip_Raiser_L], 
-                                                                                               weights[(int)FBExpression.Nose_Wrinkler_L]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpRight].Weight = Math.Max(weights[(int)FBExpression.Upper_Lip_Raiser_R], 
-                                                                                            weights[(int)FBExpression.Nose_Wrinkler_R]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(weights[(int)FBExpression.Upper_Lip_Raiser_R], 
-                                                                                                weights[(int)FBExpression.Nose_Wrinkler_R]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpLeft].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 
+                                                                                           weights[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenLeft].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 
+                                                                                               weights[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpRight].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 
+                                                                                            weights[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 
+                                                                                                weights[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserUpper].Weight = weights[(int)FBExpression.Chin_Raiser_T];
-            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserLower].Weight = weights[(int)FBExpression.Chin_Raiser_B];
+            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserUpper].Weight = weights[(int)ExpressionFB.CHIN_RAISER_T];
+            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserLower].Weight = weights[(int)ExpressionFB.CHIN_RAISER_B];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleLeft].Weight = weights[(int)FBExpression.Dimpler_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleRight].Weight = weights[(int)FBExpression.Dimpler_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleLeft].Weight = weights[(int)ExpressionFB.DIMPLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleRight].Weight = weights[(int)ExpressionFB.DIMPLER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerLeft].Weight = weights[(int)FBExpression.Lip_Tightener_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerRight].Weight = weights[(int)FBExpression.Lip_Tightener_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerLeft].Weight = weights[(int)ExpressionFB.LIP_TIGHTENER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerRight].Weight = weights[(int)ExpressionFB.LIP_TIGHTENER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthPressLeft].Weight = weights[(int)FBExpression.Lip_Pressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthPressRight].Weight = weights[(int)FBExpression.Lip_Pressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthPressLeft].Weight = weights[(int)ExpressionFB.LIP_PRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthPressRight].Weight = weights[(int)ExpressionFB.LIP_PRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthStretchLeft].Weight = weights[(int)FBExpression.Lip_Stretcher_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthStretchRight].Weight = weights[(int)FBExpression.Lip_Stretcher_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthStretchLeft].Weight = weights[(int)ExpressionFB.LIP_STRETCHER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthStretchRight].Weight = weights[(int)ExpressionFB.LIP_STRETCHER_R];
             #endregion
 
             #region Lip Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperRight].Weight = weights[(int)FBExpression.Lip_Pucker_R];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerRight].Weight = weights[(int)FBExpression.Lip_Pucker_R];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperLeft].Weight = weights[(int)FBExpression.Lip_Pucker_L];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerLeft].Weight = weights[(int)FBExpression.Lip_Pucker_L];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperRight].Weight = weights[(int)ExpressionFB.LIP_PUCKER_R];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerRight].Weight = weights[(int)ExpressionFB.LIP_PUCKER_R];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperLeft].Weight = weights[(int)ExpressionFB.LIP_PUCKER_L];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerLeft].Weight = weights[(int)ExpressionFB.LIP_PUCKER_L];
 
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperLeft].Weight = weights[(int)FBExpression.Lip_Funneler_LT];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperRight].Weight = weights[(int)FBExpression.Lip_Funneler_RT];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerLeft].Weight = weights[(int)FBExpression.Lip_Funneler_LB];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerRight].Weight = weights[(int)FBExpression.Lip_Funneler_RB];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperLeft].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_LT];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperRight].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_RT];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerLeft].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_LB];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerRight].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_RB];
 
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)FBExpression.Upper_Lip_Raiser_L], 1f/6f), weights[(int)FBExpression.Lip_Suck_LT]);
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)FBExpression.Upper_Lip_Raiser_R], 1f/6f), weights[(int)FBExpression.Lip_Suck_RT]);
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerLeft].Weight = weights[(int)FBExpression.Lip_Suck_LB];
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerRight].Weight = weights[(int)FBExpression.Lip_Suck_RB];
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 1f/6f), weights[(int)ExpressionFB.LIP_SUCK_LT]);
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 1f/6f), weights[(int)ExpressionFB.LIP_SUCK_RT]);
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerLeft].Weight = weights[(int)ExpressionFB.LIP_SUCK_LB];
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerRight].Weight = weights[(int)ExpressionFB.LIP_SUCK_RB];
             #endregion
 
             #region Cheek Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.CheekPuffLeft].Weight = weights[(int)FBExpression.Cheek_Puff_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekPuffRight].Weight = weights[(int)FBExpression.Cheek_Puff_R];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSuckLeft].Weight = weights[(int)FBExpression.Cheek_Suck_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSuckRight].Weight = weights[(int)FBExpression.Cheek_Suck_R];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSquintLeft].Weight = weights[(int)FBExpression.Cheek_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSquintRight].Weight = weights[(int)FBExpression.Cheek_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekPuffLeft].Weight = weights[(int)ExpressionFB.CHEEK_PUFF_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekPuffRight].Weight = weights[(int)ExpressionFB.CHEEK_PUFF_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSuckLeft].Weight = weights[(int)ExpressionFB.CHEEK_SUCK_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSuckRight].Weight = weights[(int)ExpressionFB.CHEEK_SUCK_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSquintLeft].Weight = weights[(int)ExpressionFB.CHEEK_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSquintRight].Weight = weights[(int)ExpressionFB.CHEEK_RAISER_R];
             #endregion
 
             #region Nose Expression Set             
-            unifiedExpressions[(int)UnifiedExpressions.NoseSneerLeft].Weight = weights[(int)FBExpression.Nose_Wrinkler_L];
-            unifiedExpressions[(int)UnifiedExpressions.NoseSneerRight].Weight = weights[(int)FBExpression.Nose_Wrinkler_R];
+            unifiedExpressions[(int)UnifiedExpressions.NoseSneerLeft].Weight = weights[(int)ExpressionFB.NOSE_WRINKLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.NoseSneerRight].Weight = weights[(int)ExpressionFB.NOSE_WRINKLER_R];
             #endregion
 
             #region Tongue Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.TongueOut].Weight = weights[(int)FBExpression.Tongue_Out];
+            unifiedExpressions[(int)UnifiedExpressions.TongueOut].Weight = weights[(int)ExpressionFB.TONGUE_OUT];
             #endregion
         }
 
