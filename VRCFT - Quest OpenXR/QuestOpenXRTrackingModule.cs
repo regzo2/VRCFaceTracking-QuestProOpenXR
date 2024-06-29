@@ -1,26 +1,14 @@
-﻿using System;
-using System.Threading;
-using System.Runtime.InteropServices;
-
-using System.Diagnostics;
-
+﻿using System.Runtime.InteropServices;
 using VRCFaceTracking;
-using System.IO;
 using Microsoft.Extensions.Logging;
 using VRCFaceTracking.Core.Types;
 using VRCFaceTracking.Core.Params.Data;
 using VRCFaceTracking.Core.Params.Expressions;
-using System.Drawing.Imaging;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Meta_OpenXR
 {
     public class QuestProTrackingModule : ExtTrackingModule
     {
-        private const int expressionsSize = 63;
         private (bool, bool) faceSlots = (false, false);
         private FaceWeightsFB expressions;
         private EyeGazesFB gazes;
@@ -31,6 +19,21 @@ namespace Meta_OpenXR
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         internal static extern bool SetDllDirectory(string lpPathName);
+
+        private void SetRuntimeToQuest()
+        {
+            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
+                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
+        }
+        
+        private void ResetRuntime()
+        {
+            if (Utils.HasAdmin)
+            {
+                Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
+                OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
+            }
+        }
 
         // Synchronous module initialization. Take as much time as you need to initialize any external modules. This runs in the init-thread
         public override (bool SupportsEye, bool SupportsExpression) Supported => (true, true);
@@ -47,10 +50,6 @@ namespace Meta_OpenXR
 
             if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
                 Logger.LogInformation("Setting active OpenXR runtime to Quest.");
-            else Logger.LogInformation("Unable to switch OpenXR active runtime to Quest.");
-
-            if (!Utils.HasAdmin)
-                Logger.LogInformation("Set VRCFaceTracking as admin to enable automatic Quest runtime switching. Skipping runtime switch.");
 
             qxrResult result = QXR.InitializeSession();
 
@@ -58,24 +57,22 @@ namespace Meta_OpenXR
             {
                 Logger.LogError(result switch
                 {
-                    /*
                     qxrResult.RUNTIME_FEATURE_UNAVAILABLE => "Runtime does not have required features available.",
                     qxrResult.SPACE_CREATE_FAILURE => "Runtime failed to create a reference space.",
                     qxrResult.SYSTEM_GET_FAILURE => "Runtime failed to provide system information.",
                     qxrResult.GRAPHICS_BIND_FAILURE => "Runtime failed to bind to a graphics runtime.",
                     qxrResult.RUNTIME_FAILURE => "Runtime failed to initialize.",
                     qxrResult.RUNTIME_MISSING => "Runtime does not exist.",
-                    */
-                    _ => $"Session unable to be created: {result}. Module will not be loaded."
+                    _ => $"Session unable to be created: {result}. Module will not be loaded. "
                 });
 
-                if (Utils.HasAdmin)
+                if (!Utils.HasAdmin)
                 {
-                    Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
-                    OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
+                    Logger.LogInformation("Please ensure that Quest Link running and is set as the active OpenXR runtime");
+                    Logger.LogInformation("Or run VRCFaceTracking as administrator to enable automatic runtime switching.");
                 }
 
-                return (false, false);
+                goto EndInit;
             }
 
             var trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker());
@@ -92,11 +89,8 @@ namespace Meta_OpenXR
             expressions.time = 10000000;
             gazes.time = 10000000;
 
-            if (Utils.HasAdmin)
-            {
-                Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
-                OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
-            }
+            EndInit:
+            ResetRuntime();
 
             return faceSlots;
         }
@@ -284,10 +278,11 @@ namespace Meta_OpenXR
 
         public override void Teardown()
         {
+            SetRuntimeToQuest();
             QXR.DestroyFaceTracker();
             QXR.DestroyEyeTracker();
             QXR.CloseSession();
-            //if (Utils.HasAdmin) OpenXRRegistryHelper.RestoreOriginalActiveRuntime();
+            ResetRuntime();
         }
     }
 }
