@@ -21,9 +21,11 @@ namespace Meta_OpenXR
     public class QuestProTrackingModule : ExtTrackingModule
     {
         private const int expressionsSize = 63;
-        private (bool, bool) trackingSupported = (false, false);
+        private (bool, bool) faceSlots = (false, false);
         private FaceWeightsFB expressions;
         private EyeGazesFB gazes;
+
+        private string questRuntimeJson = "oculus";
 
         List<Stream> _images = new List<Stream>();
 
@@ -43,49 +45,60 @@ namespace Meta_OpenXR
             var currentDllDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             SetDllDirectory(currentDllDirectory + "\\ModuleLibs");
 
+            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
+                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
+            else Logger.LogInformation("Unable to switch OpenXR active runtime to Quest.");
+
+            if (!Utils.HasAdmin)
+                Logger.LogInformation("Set VRCFaceTracking as admin to enable automatic Quest runtime switching. Skipping runtime switch.");
+
             qxrResult result = QXR.InitializeSession();
-            switch (result)
+
+            if (result != qxrResult.SUCCESS)
             {
-                case qxrResult.RUNTIME_FEATURE_UNAVAILABLE:
-                    Logger.LogError("Runtime does not have required features. " +
-                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
-                    return (false, false);
-                case qxrResult.SPACE_CREATE_FAILURE:
-                    Logger.LogError("Runtime failed to create a reference space. " +
-                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
-                    return (false, false);
-                case qxrResult.SYSTEM_GET_FAILURE:
-                    Logger.LogError("Runtime failed to provide system information." +
-                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
-                    return (false, false);
-                case qxrResult.GRAPHICS_BIND_FAILURE:
-                    Logger.LogError("Runtime failed to initialize graphics. " +
-                                    "Ensure that you have a DX11 compatible system");
-                    return (false, false);
-                case qxrResult.RUNTIME_FAILURE:
-                    Logger.LogError("Runtime failed to initialize session. " +
-                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
-                    return (false, false);
-                case qxrResult.RUNTIME_MISSING:
-                    Logger.LogError("Runtime does not exist. " +
-                                    "Ensure that the Oculus / Meta runtime is set as the default OpenXR runtime.");
-                    return (false, false);
-                case qxrResult.SUCCESS:
-                    Logger.LogInformation("Initialized session successfully.");
-                    break;
-                default:
-                    Logger.LogError($"Session unable to be created for unknown reason {result}. Module will not be loaded.");
-                    return (false, false);
+                Logger.LogError(result switch
+                {
+                    /*
+                    qxrResult.RUNTIME_FEATURE_UNAVAILABLE => "Runtime does not have required features available.",
+                    qxrResult.SPACE_CREATE_FAILURE => "Runtime failed to create a reference space.",
+                    qxrResult.SYSTEM_GET_FAILURE => "Runtime failed to provide system information.",
+                    qxrResult.GRAPHICS_BIND_FAILURE => "Runtime failed to bind to a graphics runtime.",
+                    qxrResult.RUNTIME_FAILURE => "Runtime failed to initialize.",
+                    qxrResult.RUNTIME_MISSING => "Runtime does not exist.",
+                    */
+                    _ => $"Session unable to be created: {result}. Module will not be loaded."
+                });
+
+                if (Utils.HasAdmin)
+                {
+                    Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
+                    OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
+                }
+
+                return (false, false);
             }
 
-            trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker());
+            var trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker());
 
             if (!trackingSupported.Item1)
-                Logger.LogError("Eye tracking is unavailable for this session.");
+                Logger.LogError("Quest Eye tracking is unavailable for this session.");
             if (!trackingSupported.Item2)
-                Logger.LogError("Face expression tracking is unavailable for this session.");
+                Logger.LogError("Quest Face expression tracking is unavailable for this session.");
 
-            return trackingSupported;
+            faceSlots = (eyeAvailable && (trackingSupported.Item1 || trackingSupported.Item2),
+                         expressionAvailable && trackingSupported.Item2);
+
+            // set tracking update rate to VRCFT update rate.
+            expressions.time = 10000000;
+            gazes.time = 10000000;
+
+            if (Utils.HasAdmin)
+            {
+                Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
+                OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
+            }
+
+            return faceSlots;
         }
 
         public override void Update()
@@ -96,16 +109,16 @@ namespace Meta_OpenXR
 
         public void UpdateTracking()
         {
-            expressions.time = 10000000; // 10 ms, VRCFT update rate.
-            if (QXR.GetFaceData(ref expressions))
+            if (faceSlots.Item2 && QXR.GetFaceData(ref expressions))
             {
-                UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
+                if (faceSlots.Item1) UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
                 UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
-            }
 
-            gazes.time = 10000000;
-            if (QXR.GetEyeData(ref gazes))
-                UpdateEyeData(ref UnifiedTracking.Data.Eye);
+            }
+            if (faceSlots.Item1 && QXR.GetEyeData(ref gazes))
+            {
+                UpdateEyeData(ref UnifiedTracking.Data.Eye, ref expressions.weights, ref gazes);
+            }   
         }
 
         private Vector2 NormalizedGaze(XrQuaternion q)
@@ -122,17 +135,17 @@ namespace Meta_OpenXR
             return new Vector2(pitch, yaw);
         }
 
-        private void UpdateEyeData(ref UnifiedEyeData eyes)
+        private void UpdateEyeData(ref UnifiedEyeData eyes, ref float[] weights, ref EyeGazesFB gazes)
         {
             #region Eye Openness parsing
 
             eyes.Left.Openness = 
-                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)ExpressionFB.EYES_CLOSED_L]
-                + expressions.weights[(int)ExpressionFB.CHEEK_RAISER_L] * expressions.weights[(int)ExpressionFB.LID_TIGHTENER_L]));
+                1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_L]
+                + weights[(int)ExpressionFB.CHEEK_RAISER_L] * weights[(int)ExpressionFB.LID_TIGHTENER_L]));
 
             eyes.Right.Openness = 
-                1.0f - (float)Math.Max(0, Math.Min(1, expressions.weights[(int)ExpressionFB.EYES_CLOSED_R] 
-                + expressions.weights[(int)ExpressionFB.CHEEK_RAISER_R] * expressions.weights[(int)ExpressionFB.LID_TIGHTENER_R]));
+                1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_R] 
+                + weights[(int)ExpressionFB.CHEEK_RAISER_R] * weights[(int)ExpressionFB.LID_TIGHTENER_R]));
 
             #endregion
 
@@ -189,7 +202,9 @@ namespace Meta_OpenXR
             #endregion
 
             #region Mouth Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = weights[(int)ExpressionFB.LIPS_TOWARD];
+            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = Math.Max(0, 
+                                                                                Math.Min(weights[(int)ExpressionFB.LIPS_TOWARD], 
+                                                                                         weights[(int)ExpressionFB.JAW_DROP]));
 
             unifiedExpressions[(int)UnifiedExpressions.MouthUpperLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
             unifiedExpressions[(int)UnifiedExpressions.MouthLowerLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
@@ -272,6 +287,7 @@ namespace Meta_OpenXR
             QXR.DestroyFaceTracker();
             QXR.DestroyEyeTracker();
             QXR.CloseSession();
+            //if (Utils.HasAdmin) OpenXRRegistryHelper.RestoreOriginalActiveRuntime();
         }
     }
 }
