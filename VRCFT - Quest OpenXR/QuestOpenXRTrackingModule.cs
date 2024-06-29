@@ -1,127 +1,39 @@
-﻿using System;
-using System.Threading;
-using System.Runtime.InteropServices;
-
-using System.Diagnostics;
-
+﻿using System.Runtime.InteropServices;
 using VRCFaceTracking;
-using System.IO;
 using Microsoft.Extensions.Logging;
 using VRCFaceTracking.Core.Types;
 using VRCFaceTracking.Core.Params.Data;
 using VRCFaceTracking.Core.Params.Expressions;
-using System.Drawing.Imaging;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Reflection;
 
-namespace VRCFT_Module___QuestOpenXR
+namespace Meta_OpenXR
 {
-    public enum FBExpression
-    {
-        Brow_Lowerer_L = 0,
-        Brow_Lowerer_R = 1,
-        Cheek_Puff_L = 2,
-        Cheek_Puff_R = 3,
-        Cheek_Raiser_L = 4,
-        Cheek_Raiser_R = 5,
-        Cheek_Suck_L = 6,
-        Cheek_Suck_R = 7,
-        Chin_Raiser_B = 8,
-        Chin_Raiser_T = 9,
-        Dimpler_L = 10,
-        Dimpler_R = 11,
-        Eyes_Closed_L = 12,
-        Eyes_Closed_R = 13,
-        Eyes_Look_Down_L = 14,
-        Eyes_Look_Down_R = 15,
-        Eyes_Look_Left_L = 16,
-        Eyes_Look_Left_R = 17,
-        Eyes_Look_Right_L = 18,
-        Eyes_Look_Right_R = 19,
-        Eyes_Look_Up_L = 20,
-        Eyes_Look_Up_R = 21,
-        Inner_Brow_Raiser_L = 22,
-        Inner_Brow_Raiser_R = 23,
-        Jaw_Drop = 24,
-        Jaw_Sideways_Left = 25,
-        Jaw_Sideways_Right = 26,
-        Jaw_Thrust = 27,
-        Lid_Tightener_L = 28,
-        Lid_Tightener_R = 29,
-        Lip_Corner_Depressor_L = 30,
-        Lip_Corner_Depressor_R = 31,
-        Lip_Corner_Puller_L = 32,
-        Lip_Corner_Puller_R = 33,
-        Lip_Funneler_LB = 34,
-        Lip_Funneler_LT = 35,
-        Lip_Funneler_RB = 36,
-        Lip_Funneler_RT = 37,
-        Lip_Pressor_L = 38,
-        Lip_Pressor_R = 39,
-        Lip_Pucker_L = 40,
-        Lip_Pucker_R = 41,
-        Lip_Stretcher_L = 42,
-        Lip_Stretcher_R = 43,
-        Lip_Suck_LB = 44,
-        Lip_Suck_LT = 45,
-        Lip_Suck_RB = 46,
-        Lip_Suck_RT = 47,
-        Lip_Tightener_L = 48,
-        Lip_Tightener_R = 49,
-        Lips_Toward = 50,
-        Lower_Lip_Depressor_L = 51,
-        Lower_Lip_Depressor_R = 52,
-        Mouth_Left = 53,
-        Mouth_Right = 54,
-        Nose_Wrinkler_L = 55,
-        Nose_Wrinkler_R = 56,
-        Outer_Brow_Raiser_L = 57,
-        Outer_Brow_Raiser_R = 58,
-        Upper_Lid_Raiser_L = 59,
-        Upper_Lid_Raiser_R = 60,
-        Upper_Lip_Raiser_L = 61,
-        Upper_Lip_Raiser_R = 62,
-        Max = 63
-    }
-
     public class QuestProTrackingModule : ExtTrackingModule
     {
-        [StructLayout(LayoutKind.Sequential)]
-        class XrQuat
-        {
-            public float x;
-            public float y;
-            public float z;
-            public float w;
-        }
+        private (bool, bool) faceSlots = (false, false);
+        private FaceWeightsFB expressions;
+        private EyeGazesFB gazes;
 
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern int InitOpenXRRuntime();
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern int UpdateOpenXRFaceTracker();
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern float GetCheekPuff(int cheekIndex);
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern void GetEyeOrientation(int eyeIndex, XrQuat outOrientation);
-
-        [DllImport("QuestFaceTrackingOpenXR.dll")]
-        static extern void GetFaceWeights([MarshalAs(UnmanagedType.LPArray, SizeConst = 63)] float[] faceExpressionFB);
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        private static extern bool SetDllDirectory(string lpPathName);
-
-
-        private const int expressionsSize = 63;
-        private byte[] rawExpressions = new byte[expressionsSize * 4 + (8 * 2 * 4)];
-        private float[] expressions = new float[expressionsSize + (8 * 2)];
-        float[] FaceExpressionFB = new float[expressionsSize];
-        private (bool, bool) trackingSupported = (false, false);
+        private string questRuntimeJson = "oculus";
 
         List<Stream> _images = new List<Stream>();
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        internal static extern bool SetDllDirectory(string lpPathName);
+
+        private void SetRuntimeToQuest()
+        {
+            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
+                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
+        }
+        
+        private void ResetRuntime()
+        {
+            if (Utils.HasAdmin)
+            {
+                Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
+                OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
+            }
+        }
 
         // Synchronous module initialization. Take as much time as you need to initialize any external modules. This runs in the init-thread
         public override (bool SupportsEye, bool SupportsExpression) Supported => (true, true);
@@ -130,284 +42,246 @@ namespace VRCFT_Module___QuestOpenXR
         {
             ModuleInformation.Name = "Quest Pro";
 
-            var stream = GetType().Assembly.GetManifestResourceStream("VRCFT___Quest_OpenXR.Assets.quest-pro.png");
+            var stream = GetType().Assembly.GetManifestResourceStream("Meta_OpenXR.Assets.quest-pro.png");
             ModuleInformation.StaticImages = stream != null ? new List<Stream> { stream } : ModuleInformation.StaticImages;
 
             var currentDllDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             SetDllDirectory(currentDllDirectory + "\\ModuleLibs");
 
-            int RuntimeInitResult = InitOpenXRRuntime();
-            switch (RuntimeInitResult)
+            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
+                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
+
+            qxrResult result = QXR.InitializeSession();
+
+            if (result != qxrResult.SUCCESS)
             {
-                case -2:
-                    Logger.LogInformation("[QuestOpenXR] Facial Tracking not supported.");
-                    trackingSupported.Item2 = false;
-                    break;
-                case -1:
-                    Logger.LogInformation("[QuestOpenXR] Eye Tracking not supported.");
-                    trackingSupported.Item1 = false;
-                    break;
-                case 0:
-                    Logger.LogInformation("[QuestOpenXR] OpenXR Runtime init success.");
-                    trackingSupported = (true, true);
-                    break;
-                case 2:
-                    Logger.LogError("[QuestOpenXR] Failed to create XrInstance.");
-                    Logger.LogError("[QuestOpenXR] Please make sure that the Oculus application is running, or this module did not properly uninitialize.");
-                    trackingSupported = (false, false);
-                    break;
-                case 3:
-                    Logger.LogError("[QuestOpenXR] Failed to get XrSystemID.");
-                    trackingSupported = (false, false);
-                    break;
-                case 4:
-                    Logger.LogError("[QuestOpenXR] Failed to get XrViewConfigurationType.");
-                    trackingSupported = (false, false);
-                    break;
-                case 5:
-                    Logger.LogError("[QuestOpenXR] Failed to GetD3D11GraphicsRequirements.");
-                    trackingSupported = (false, false);
-                    break;
-                case 6:
-                    Logger.LogError("[QuestOpenXR] Failed to create session.");
-                    Logger.LogError("[QuestOpenXR] Please ensure that Oculus app is the active OpenXR runtime.");
-                    trackingSupported = (false, false);
-                    break;
-                case 7:
-                    Logger.LogError("[QuestOpenXR] OpenXR Failed to create XrSpace.");
-                    trackingSupported = (false, false);
-                    break;
-                case 8:
-                    Logger.LogError("[QuestOpenXR] Failed to begin session.");
-                    trackingSupported = (false, false);
-                    break;
-                case 9:
-                    Logger.LogError("[QuestOpenXR] Failed to create Face Treacker.");
-                    trackingSupported.Item2 = false;
-                    break;
-                case 10:
-                    Logger.LogError("[QuestOpenXR] Failed to create Eye Tracker.");
-                    trackingSupported.Item1 = false;
-                    break;
-                default:
-                    Logger.LogError("[QuestOpenXR] OpenXR Runtime undefined error. Please restart this module.");
-                    trackingSupported = (false, false);
-                    break;
+                Logger.LogError(result switch
+                {
+                    qxrResult.RUNTIME_FEATURE_UNAVAILABLE => "Runtime does not have required features available.",
+                    qxrResult.SPACE_CREATE_FAILURE => "Runtime failed to create a reference space.",
+                    qxrResult.SYSTEM_GET_FAILURE => "Runtime failed to provide system information.",
+                    qxrResult.GRAPHICS_BIND_FAILURE => "Runtime failed to bind to a graphics runtime.",
+                    qxrResult.RUNTIME_FAILURE => "Runtime failed to initialize.",
+                    qxrResult.RUNTIME_MISSING => "Runtime does not exist.",
+                    _ => $"Session unable to be created: {result}. Module will not be loaded. "
+                });
+
+                if (!Utils.HasAdmin)
+                {
+                    Logger.LogInformation("Please ensure that Quest Link running and is set as the active OpenXR runtime");
+                    Logger.LogInformation("Or run VRCFaceTracking as administrator to enable automatic runtime switching.");
+                }
+
+                goto EndInit;
             }
 
-            return trackingSupported;
+            var trackingSupported = (QXR.CreateEyeTracker(), QXR.CreateFaceTracker());
+
+            if (!trackingSupported.Item1)
+                Logger.LogError("Quest Eye tracking is unavailable for this session.");
+            if (!trackingSupported.Item2)
+                Logger.LogError("Quest Face expression tracking is unavailable for this session.");
+
+            faceSlots = (eyeAvailable && (trackingSupported.Item1 || trackingSupported.Item2),
+                         expressionAvailable && trackingSupported.Item2);
+
+            // set tracking update rate to VRCFT update rate.
+            expressions.time = 10000000;
+            gazes.time = 10000000;
+
+            EndInit:
+            ResetRuntime();
+
+            return faceSlots;
         }
 
-        // This will be run in the tracking thread. This is exposed so you can control when and if the tracking data is updated down to the lowest level.
         public override void Update()
         {
             Thread.Sleep(10);
             UpdateTracking();
         }
 
-        // The update function needs to be defined separately in case the user is running with the --vrcft-nothread launch parameter
         public void UpdateTracking()
         {
-            int updateResult = UpdateOpenXRFaceTracker();
-            
-            GetFaceWeights(FaceExpressionFB);
-            for (int i = 0; i < expressionsSize; ++i)
+            if (faceSlots.Item2 && QXR.GetFaceData(ref expressions))
             {
-                expressions[i] = FaceExpressionFB[i];
+                if (faceSlots.Item1) UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
+                UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
             }
-
-            if (trackingSupported.Item1){
-                UpdateEyeData(ref UnifiedTracking.Data.Eye, ref expressions);
-                UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
-			}
-            if (trackingSupported.Item2)
-                UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions);
+            if (faceSlots.Item1 && QXR.GetEyeData(ref gazes))
+            {
+                UpdateEyeData(ref UnifiedTracking.Data.Eye, ref expressions.weights, ref gazes);
+            }
         }
 
-        private void UpdateEyeData(ref UnifiedEyeData eye, ref float[] expressions)
+        private Vector2 NormalizedGaze(XrQuaternion q)
+        {
+            float magnitude = (float)Math.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+            q.x /= magnitude;
+            q.y /= magnitude;
+            q.z /= magnitude;
+            q.w /= magnitude;
+
+            float pitch = (float)Math.Asin(2*(q.x*q.z - q.w*q.y));
+            float yaw = (float)Math.Atan2(2.0*(q.y*q.z + q.w*q.x), q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z);
+
+            return new Vector2(pitch, yaw);
+        }
+
+        private void UpdateEyeData(ref UnifiedEyeData eyes, ref float[] weights, ref EyeGazesFB gazes)
         {
             #region Eye Openness parsing
 
-            eye.Left.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_L] + 
-                expressions[(int)FBExpression.Eyes_Closed_L] * expressions[(int)FBExpression.Lid_Tightener_L]));
+            eyes.Left.Openness = 
+                1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_L]
+                + weights[(int)ExpressionFB.CHEEK_RAISER_L] * weights[(int)ExpressionFB.LID_TIGHTENER_L]));
 
-            eye.Right.Openness = 1.0f - (float)Math.Max(0, Math.Min(1, expressions[(int)FBExpression.Eyes_Closed_R] +
-                expressions[(int)FBExpression.Eyes_Closed_R] * expressions[(int)FBExpression.Lid_Tightener_R]));
-            #endregion
-
-            #region Eye Gaze parsing
-
-            XrQuat orientation_L = new XrQuat();
-            GetEyeOrientation(0, orientation_L);
-            double q_x = (float)orientation_L.x;
-            double q_y = (float)orientation_L.y;
-            double q_z = (float)orientation_L.z;
-            double q_w = (float)orientation_L.w;
-
-            double yaw = Math.Atan2(2.0 * (q_y * q_z + q_w * q_x), q_w * q_w - q_x * q_x - q_y * q_y + q_z * q_z);
-            double pitch = Math.Asin(-2.0 * (q_x * q_z - q_w * q_y));
-
-            double pitch_L = (180.0 / Math.PI) * pitch; // from radians
-            double yaw_L = (180.0 / Math.PI) * yaw;
-
-            XrQuat orientation_R = new XrQuat();
-            GetEyeOrientation(1, orientation_R);
-
-            q_x = (float)orientation_L.x;
-            q_y = (float)orientation_L.y;
-            q_z = (float)orientation_L.z;
-            q_w = (float)orientation_L.w;
-            yaw = Math.Atan2(2.0 * (q_y * q_z + q_w * q_x), q_w * q_w - q_x * q_x - q_y * q_y + q_z * q_z);
-            pitch = Math.Asin(-2.0 * (q_x * q_z - q_w * q_y));
-
-            double pitch_R = (180.0 / Math.PI) * pitch; // from radians
-            double yaw_R = (180.0 / Math.PI) * yaw;
+            eyes.Right.Openness = 
+                1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_R] 
+                + weights[(int)ExpressionFB.CHEEK_RAISER_R] * weights[(int)ExpressionFB.LID_TIGHTENER_R]));
 
             #endregion
 
             #region Eye Data to UnifiedEye
 
-            var radianConst = 0.0174533f;
-
-            var pitch_R_mod = (float)(Math.Abs(pitch_R) + 4f * Math.Pow(Math.Abs(pitch_R) / 30f, 30f)); // curves the tail end to better accomodate actual eye pos.
-            var pitch_L_mod = (float)(Math.Abs(pitch_L) + 4f * Math.Pow(Math.Abs(pitch_L) / 30f, 30f));
-            var yaw_R_mod = (float)(Math.Abs(yaw_R) + 6f * Math.Pow(Math.Abs(yaw_R) / 27f, 18f)); // curves the tail end to better accomodate actual eye pos.
-            var yaw_L_mod = (float)(Math.Abs(yaw_L) + 6f * Math.Pow(Math.Abs(yaw_L) / 27f, 18f));
-
-            eye.Right.Gaze = new Vector2(
-                pitch_R < 0 ? pitch_R_mod * radianConst : -1 * pitch_R_mod * radianConst,
-                yaw_R < 0 ? -1 * yaw_R_mod * radianConst : (float)yaw_R * radianConst);
-            eye.Left.Gaze = new Vector2(
-                pitch_L < 0 ? pitch_L_mod * radianConst : -1 * pitch_L_mod * radianConst,
-                yaw_L < 0 ? -1 * yaw_L_mod * radianConst : (float)yaw_L * radianConst);
+            eyes.Right.Gaze = NormalizedGaze(gazes.gaze[(int)EyePositionFB.EYE_POSITION_RIGHT].orientation);
+            eyes.Left.Gaze = NormalizedGaze(gazes.gaze[(int)EyePositionFB.EYE_POSITION_LEFT].orientation);
 
             // Eye dilation code, automated process maybe?
-            eye.Left.PupilDiameter_MM = 5f;
-            eye.Right.PupilDiameter_MM = 5f;
+            eyes.Left.PupilDiameter_MM = 5f;
+            eyes.Right.PupilDiameter_MM = 5f;
 
             // Force the normalization values of Dilation to fit avg. pupil values.
-            eye._minDilation = 0;
-            eye._maxDilation = 10;
+            eyes._minDilation = 0;
+            eyes._maxDilation = 10;
 
             #endregion
         }
 
-        private void UpdateEyeExpressions(ref UnifiedExpressionShape[] unifiedExpressions, ref float[] expressions)
+        private void UpdateEyeExpressions(ref UnifiedExpressionShape[] unifiedExpressions, ref float[] weights)
         {
             #region Eye Expressions Set
 
-            unifiedExpressions[(int)UnifiedExpressions.EyeWideLeft].Weight = expressions[(int)FBExpression.Upper_Lid_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.EyeWideRight].Weight = expressions[(int)FBExpression.Upper_Lid_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.EyeWideLeft].Weight = weights[(int)ExpressionFB.UPPER_LID_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.EyeWideRight].Weight = weights[(int)ExpressionFB.UPPER_LID_RAISER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.EyeSquintLeft].Weight = expressions[(int)FBExpression.Lid_Tightener_L];
-            unifiedExpressions[(int)UnifiedExpressions.EyeSquintRight].Weight = expressions[(int)FBExpression.Lid_Tightener_R];
+            unifiedExpressions[(int)UnifiedExpressions.EyeSquintLeft].Weight = weights[(int)ExpressionFB.LID_TIGHTENER_L];
+            unifiedExpressions[(int)UnifiedExpressions.EyeSquintRight].Weight = weights[(int)ExpressionFB.LID_TIGHTENER_R];
 
             #endregion
 
             #region Brow Expressions Set
 
-            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpLeft].Weight = expressions[(int)FBExpression.Inner_Brow_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpRight].Weight = expressions[(int)FBExpression.Inner_Brow_Raiser_R];
-            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpLeft].Weight = expressions[(int)FBExpression.Outer_Brow_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpRight].Weight = expressions[(int)FBExpression.Outer_Brow_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpLeft].Weight = weights[(int)ExpressionFB.INNER_BROW_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowInnerUpRight].Weight = weights[(int)ExpressionFB.INNER_BROW_RAISER_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpLeft].Weight = weights[(int)ExpressionFB.OUTER_BROW_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowOuterUpRight].Weight = weights[(int)ExpressionFB.OUTER_BROW_RAISER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.BrowPinchLeft].Weight = expressions[(int)FBExpression.Brow_Lowerer_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowLowererLeft].Weight = expressions[(int)FBExpression.Brow_Lowerer_L];
-            unifiedExpressions[(int)UnifiedExpressions.BrowPinchRight].Weight = expressions[(int)FBExpression.Brow_Lowerer_R];
-            unifiedExpressions[(int)UnifiedExpressions.BrowLowererRight].Weight = expressions[(int)FBExpression.Brow_Lowerer_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowPinchLeft].Weight = weights[(int)ExpressionFB.BROW_LOWERER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowLowererLeft].Weight = weights[(int)ExpressionFB.BROW_LOWERER_L];
+            unifiedExpressions[(int)UnifiedExpressions.BrowPinchRight].Weight = weights[(int)ExpressionFB.BROW_LOWERER_R];
+            unifiedExpressions[(int)UnifiedExpressions.BrowLowererRight].Weight = weights[(int)ExpressionFB.BROW_LOWERER_R];
 
             #endregion
         }
 
-        private void UpdateMouthExpressions(ref UnifiedExpressionShape[] unifiedExpressions, ref float[] expressions)
+        private void UpdateMouthExpressions(ref UnifiedExpressionShape[] unifiedExpressions, ref float[] weights)
         {
-
             #region Jaw Expression Set                        
-            unifiedExpressions[(int)UnifiedExpressions.JawOpen].Weight = expressions[(int)FBExpression.Jaw_Drop];
-            unifiedExpressions[(int)UnifiedExpressions.JawLeft].Weight = expressions[(int)FBExpression.Jaw_Sideways_Left];
-            unifiedExpressions[(int)UnifiedExpressions.JawRight].Weight = expressions[(int)FBExpression.Jaw_Sideways_Right];
-            unifiedExpressions[(int)UnifiedExpressions.JawForward].Weight = expressions[(int)FBExpression.Jaw_Thrust];
+            unifiedExpressions[(int)UnifiedExpressions.JawOpen].Weight = weights[(int)ExpressionFB.JAW_DROP];
+            unifiedExpressions[(int)UnifiedExpressions.JawLeft].Weight = weights[(int)ExpressionFB.JAW_SIDEWAYS_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.JawRight].Weight = weights[(int)ExpressionFB.JAW_SIDEWAYS_RIGHT];
+            unifiedExpressions[(int)UnifiedExpressions.JawForward].Weight = weights[(int)ExpressionFB.JAW_THRUST];
             #endregion
 
             #region Mouth Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = expressions[(int)FBExpression.Lips_Toward];
+            unifiedExpressions[(int)UnifiedExpressions.MouthClosed].Weight = Math.Max(0, 
+                                                                                Math.Min(weights[(int)ExpressionFB.LIPS_TOWARD], 
+                                                                                         weights[(int)ExpressionFB.JAW_DROP]));
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperLeft].Weight = expressions[(int)FBExpression.Mouth_Left];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerLeft].Weight = expressions[(int)FBExpression.Mouth_Left];
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperRight].Weight = expressions[(int)FBExpression.Mouth_Right];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerRight].Weight = expressions[(int)FBExpression.Mouth_Right];
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerLeft].Weight = weights[(int)ExpressionFB.MOUTH_LEFT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperRight].Weight = weights[(int)ExpressionFB.MOUTH_RIGHT];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerRight].Weight = weights[(int)ExpressionFB.MOUTH_RIGHT];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullLeft].Weight = expressions[(int)FBExpression.Lip_Corner_Puller_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantLeft].Weight = expressions[(int)FBExpression.Lip_Corner_Puller_L]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullRight].Weight = expressions[(int)FBExpression.Lip_Corner_Puller_R];
-            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantRight].Weight = expressions[(int)FBExpression.Lip_Corner_Puller_R]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
-            unifiedExpressions[(int)UnifiedExpressions.MouthFrownLeft].Weight = expressions[(int)FBExpression.Lip_Corner_Depressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthFrownRight].Weight = expressions[(int)FBExpression.Lip_Corner_Depressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_L]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerPullRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthCornerSlantRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_PULLER_R]; // Slant (Sharp Corner Raiser) is baked into Corner Puller.
+            unifiedExpressions[(int)UnifiedExpressions.MouthFrownLeft].Weight = weights[(int)ExpressionFB.LIP_CORNER_DEPRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthFrownRight].Weight = weights[(int)ExpressionFB.LIP_CORNER_DEPRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownLeft].Weight = expressions[(int)FBExpression.Lower_Lip_Depressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownRight].Weight = expressions[(int)FBExpression.Lower_Lip_Depressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownLeft].Weight = weights[(int)ExpressionFB.LOWER_LIP_DEPRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthLowerDownRight].Weight = weights[(int)ExpressionFB.LOWER_LIP_DEPRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpLeft].Weight = Math.Max(0, expressions[(int)FBExpression.Upper_Lip_Raiser_L] - expressions[(int)FBExpression.Nose_Wrinkler_L]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenLeft].Weight = Math.Max(0, expressions[(int)FBExpression.Upper_Lip_Raiser_L] - expressions[(int)FBExpression.Nose_Wrinkler_L]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpRight].Weight = Math.Max(0, expressions[(int)FBExpression.Upper_Lip_Raiser_R] - expressions[(int)FBExpression.Nose_Wrinkler_R]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(0, expressions[(int)FBExpression.Upper_Lip_Raiser_R] - expressions[(int)FBExpression.Nose_Wrinkler_R]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpLeft].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 
+                                                                                           weights[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenLeft].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 
+                                                                                               weights[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpRight].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 
+                                                                                            weights[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 
+                                                                                                weights[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserUpper].Weight = expressions[(int)FBExpression.Chin_Raiser_T];
-            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserLower].Weight = expressions[(int)FBExpression.Chin_Raiser_B];
+            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserUpper].Weight = weights[(int)ExpressionFB.CHIN_RAISER_T];
+            unifiedExpressions[(int)UnifiedExpressions.MouthRaiserLower].Weight = weights[(int)ExpressionFB.CHIN_RAISER_B];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleLeft].Weight = expressions[(int)FBExpression.Dimpler_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleRight].Weight = expressions[(int)FBExpression.Dimpler_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleLeft].Weight = weights[(int)ExpressionFB.DIMPLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthDimpleRight].Weight = weights[(int)ExpressionFB.DIMPLER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerLeft].Weight = expressions[(int)FBExpression.Lip_Tightener_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerRight].Weight = expressions[(int)FBExpression.Lip_Tightener_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerLeft].Weight = weights[(int)ExpressionFB.LIP_TIGHTENER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthTightenerRight].Weight = weights[(int)ExpressionFB.LIP_TIGHTENER_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthPressLeft].Weight = expressions[(int)FBExpression.Lip_Pressor_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthPressRight].Weight = expressions[(int)FBExpression.Lip_Pressor_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthPressLeft].Weight = weights[(int)ExpressionFB.LIP_PRESSOR_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthPressRight].Weight = weights[(int)ExpressionFB.LIP_PRESSOR_R];
 
-            unifiedExpressions[(int)UnifiedExpressions.MouthStretchLeft].Weight = expressions[(int)FBExpression.Lip_Stretcher_L];
-            unifiedExpressions[(int)UnifiedExpressions.MouthStretchRight].Weight = expressions[(int)FBExpression.Lip_Stretcher_R];
+            unifiedExpressions[(int)UnifiedExpressions.MouthStretchLeft].Weight = weights[(int)ExpressionFB.LIP_STRETCHER_L];
+            unifiedExpressions[(int)UnifiedExpressions.MouthStretchRight].Weight = weights[(int)ExpressionFB.LIP_STRETCHER_R];
             #endregion
 
             #region Lip Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperRight].Weight = expressions[(int)FBExpression.Lip_Pucker_R];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerRight].Weight = expressions[(int)FBExpression.Lip_Pucker_R];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperLeft].Weight = expressions[(int)FBExpression.Lip_Pucker_L];
-            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerLeft].Weight = expressions[(int)FBExpression.Lip_Pucker_L];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperRight].Weight = weights[(int)ExpressionFB.LIP_PUCKER_R];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerRight].Weight = weights[(int)ExpressionFB.LIP_PUCKER_R];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerUpperLeft].Weight = weights[(int)ExpressionFB.LIP_PUCKER_L];
+            unifiedExpressions[(int)UnifiedExpressions.LipPuckerLowerLeft].Weight = weights[(int)ExpressionFB.LIP_PUCKER_L];
 
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperLeft].Weight = expressions[(int)FBExpression.Lip_Funneler_LT];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperRight].Weight = expressions[(int)FBExpression.Lip_Funneler_RT];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerLeft].Weight = expressions[(int)FBExpression.Lip_Funneler_LB];
-            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerRight].Weight = expressions[(int)FBExpression.Lip_Funneler_RB];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperLeft].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_LT];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelUpperRight].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_RT];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerLeft].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_LB];
+            unifiedExpressions[(int)UnifiedExpressions.LipFunnelLowerRight].Weight = weights[(int)ExpressionFB.LIP_FUNNELER_RB];
 
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = Math.Min(1f - (float)Math.Pow(expressions[(int)FBExpression.Upper_Lip_Raiser_L], 1f/6f), expressions[(int)FBExpression.Lip_Suck_LT]);
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = Math.Min(1f - (float)Math.Pow(expressions[(int)FBExpression.Upper_Lip_Raiser_R], 1f/6f), expressions[(int)FBExpression.Lip_Suck_RT]);
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerLeft].Weight = expressions[(int)FBExpression.Lip_Suck_LB];
-            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerRight].Weight = expressions[(int)FBExpression.Lip_Suck_RB];
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperLeft].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)ExpressionFB.UPPER_LIP_RAISER_L], 1f/6f), weights[(int)ExpressionFB.LIP_SUCK_LT]);
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckUpperRight].Weight = Math.Min(1f - (float)Math.Pow(weights[(int)ExpressionFB.UPPER_LIP_RAISER_R], 1f/6f), weights[(int)ExpressionFB.LIP_SUCK_RT]);
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerLeft].Weight = weights[(int)ExpressionFB.LIP_SUCK_LB];
+            unifiedExpressions[(int)UnifiedExpressions.LipSuckLowerRight].Weight = weights[(int)ExpressionFB.LIP_SUCK_RB];
             #endregion
 
             #region Cheek Expression Set   
-            unifiedExpressions[(int)UnifiedExpressions.CheekPuffLeft].Weight = expressions[(int)FBExpression.Cheek_Puff_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekPuffRight].Weight = expressions[(int)FBExpression.Cheek_Puff_R];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSuckLeft].Weight = expressions[(int)FBExpression.Cheek_Suck_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSuckRight].Weight = expressions[(int)FBExpression.Cheek_Suck_R];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSquintLeft].Weight = expressions[(int)FBExpression.Cheek_Raiser_L];
-            unifiedExpressions[(int)UnifiedExpressions.CheekSquintRight].Weight = expressions[(int)FBExpression.Cheek_Raiser_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekPuffLeft].Weight = weights[(int)ExpressionFB.CHEEK_PUFF_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekPuffRight].Weight = weights[(int)ExpressionFB.CHEEK_PUFF_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSuckLeft].Weight = weights[(int)ExpressionFB.CHEEK_SUCK_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSuckRight].Weight = weights[(int)ExpressionFB.CHEEK_SUCK_R];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSquintLeft].Weight = weights[(int)ExpressionFB.CHEEK_RAISER_L];
+            unifiedExpressions[(int)UnifiedExpressions.CheekSquintRight].Weight = weights[(int)ExpressionFB.CHEEK_RAISER_R];
             #endregion
 
             #region Nose Expression Set             
-            unifiedExpressions[(int)UnifiedExpressions.NoseSneerLeft].Weight = expressions[(int)FBExpression.Nose_Wrinkler_L];
-            unifiedExpressions[(int)UnifiedExpressions.NoseSneerRight].Weight = expressions[(int)FBExpression.Nose_Wrinkler_R];
+            unifiedExpressions[(int)UnifiedExpressions.NoseSneerLeft].Weight = weights[(int)ExpressionFB.NOSE_WRINKLER_L];
+            unifiedExpressions[(int)UnifiedExpressions.NoseSneerRight].Weight = weights[(int)ExpressionFB.NOSE_WRINKLER_R];
             #endregion
 
             #region Tongue Expression Set   
-            //Future placeholder
-            unifiedExpressions[(int)UnifiedExpressions.TongueOut].Weight = 0f;
+            unifiedExpressions[(int)UnifiedExpressions.TongueOut].Weight = weights[(int)ExpressionFB.TONGUE_OUT];
             #endregion
         }
 
-        // A chance to de-initialize everything. This runs synchronously inside main game thread. Do not touch any Unity objects here.
         public override void Teardown()
         {
+            SetRuntimeToQuest();
+            QXR.DestroyFaceTracker();
+            QXR.DestroyEyeTracker();
+            QXR.CloseSession();
+            ResetRuntime();
         }
     }
 }
