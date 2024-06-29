@@ -113,12 +113,11 @@ namespace Meta_OpenXR
             {
                 if (faceSlots.Item1) UpdateEyeExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
                 UpdateMouthExpressions(ref UnifiedTracking.Data.Shapes, ref expressions.weights);
-
             }
             if (faceSlots.Item1 && QXR.GetEyeData(ref gazes))
             {
                 UpdateEyeData(ref UnifiedTracking.Data.Eye, ref expressions.weights, ref gazes);
-            }   
+            }
         }
 
         private Vector2 NormalizedGaze(XrQuaternion q)
