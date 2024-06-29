@@ -41,7 +41,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="XCOPY &quot;$(TargetDir)\VRCFT - Quest OpenXR.dll&quot; &quot;C:\Users\lazlo\AppData\Roaming\VRCFaceTracking\CustomLibs\e90de1b0-1d67-4d5b-b517-597043fa3852&quot; /S /Y" />
+    <Exec Command="XCOPY &quot;$(TargetDir)\VRCFT - Quest OpenXR.dll&quot; &quot;%appdata%\VRCFaceTracking\CustomLibs\e90de1b0-1d67-4d5b-b517-597043fa3852&quot; /S /Y" />
   </Target>
 
 </Project>
