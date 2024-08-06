@@ -217,7 +217,7 @@ namespace Meta_OpenXR
             unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpLeft].Weight = Math.Max(0, expressions[(int)ExpressionFB.UPPER_LIP_RAISER_L] - expressions[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
             unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenLeft].Weight = Math.Max(0, expressions[(int)ExpressionFB.UPPER_LIP_RAISER_L] - expressions[(int)ExpressionFB.NOSE_WRINKLER_L]); // Workaround for upper lip up wierd tracking quirk.
             unifiedExpressions[(int)UnifiedExpressions.MouthUpperUpRight].Weight = Math.Max(0, expressions[(int)ExpressionFB.UPPER_LIP_RAISER_R] - expressions[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
-            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(0, expressions[(int)ExpressionFB.UPPER_LIP_RAISER_R] - expressions[(int)Expression\FB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
+            unifiedExpressions[(int)UnifiedExpressions.MouthUpperDeepenRight].Weight = Math.Max(0, expressions[(int)ExpressionFB.UPPER_LIP_RAISER_R] - expressions[(int)ExpressionFB.NOSE_WRINKLER_R]); // Workaround for upper lip up wierd tracking quirk.
 
             unifiedExpressions[(int)UnifiedExpressions.MouthRaiserUpper].Weight = weights[(int)ExpressionFB.CHIN_RAISER_T];
             unifiedExpressions[(int)UnifiedExpressions.MouthRaiserLower].Weight = weights[(int)ExpressionFB.CHIN_RAISER_B];
