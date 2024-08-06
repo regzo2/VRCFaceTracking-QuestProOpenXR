@@ -31,7 +31,7 @@ jobs:
         dotnet-version: '7.0.x' # VRCFT builds on .NET 7
 
     - name: Create CustomLibs Directory
-      run: mkdir -p "%APPDATA%\\VRCFaceTracking\\CustomLibs\\e90de1b0-1d67-4d5b-b517-597043fa3852"
+      run: mkdir -p "${env:APPDATA}\\VRCFaceTracking\\CustomLibs\\e90de1b0-1d67-4d5b-b517-597043fa3852"
 
     - name: Restore dependencies
       run: dotnet restore main-repo/VRCFT-QuestProOpenXR.sln
