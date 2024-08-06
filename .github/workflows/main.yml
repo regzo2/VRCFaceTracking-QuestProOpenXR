@@ -23,7 +23,7 @@ jobs:
       with:
         repository: benaclejames/VRCFaceTracking
         ref: 04717cc936d5307796064aafa3dd2a862dfdd02e # VRCFT build 5.1.1.0
-        path: main-repo/VRCFaceTracking
+        path: VRCFaceTracking
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
