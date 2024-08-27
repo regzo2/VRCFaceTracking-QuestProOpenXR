@@ -134,11 +134,11 @@ namespace Meta_OpenXR
 
             eyes.Left.Openness = 
                 1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_L]
-                + weights[(int)ExpressionFB.CHEEK_RAISER_L] * weights[(int)ExpressionFB.LID_TIGHTENER_L]));
+                + (float)Math.Pow(weights[(int)ExpressionFB.EYES_CLOSED_L] * weights[(int)ExpressionFB.LID_TIGHTENER_L], 2f)));
 
             eyes.Right.Openness = 
                 1.0f - (float)Math.Max(0, Math.Min(1, weights[(int)ExpressionFB.EYES_CLOSED_R] 
-                + weights[(int)ExpressionFB.CHEEK_RAISER_R] * weights[(int)ExpressionFB.LID_TIGHTENER_R]));
+                + (float)Math.Pow(weights[(int)ExpressionFB.EYES_CLOSED_R] * weights[(int)ExpressionFB.LID_TIGHTENER_R], 2f)));
 
             #endregion
 
