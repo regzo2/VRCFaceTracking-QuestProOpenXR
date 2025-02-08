@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using VRCFaceTracking.Core.Types;
 using VRCFaceTracking.Core.Params.Data;
 using VRCFaceTracking.Core.Params.Expressions;
+using System.Diagnostics;
 
 namespace Meta_OpenXR
 {
@@ -20,19 +21,9 @@ namespace Meta_OpenXR
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         internal static extern bool SetDllDirectory(string lpPathName);
 
-        private void SetRuntimeToQuest()
-        {
-            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
-                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
-        }
-        
         private void ResetRuntime()
         {
-            if (Utils.HasAdmin)
-            {
-                Logger.LogInformation("Resetting OpenXR runtime to original active runtime.");
-                OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
-            }
+            OpenXRRegistryHelper.RestoreOriginalActiveRuntime(ref Logger);
         }
 
         // Synchronous module initialization. Take as much time as you need to initialize any external modules. This runs in the init-thread
@@ -48,8 +39,15 @@ namespace Meta_OpenXR
             var currentDllDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             SetDllDirectory(currentDllDirectory + "\\ModuleLibs");
 
-            if (Utils.HasAdmin && OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
-                Logger.LogInformation("Setting active OpenXR runtime to Quest.");
+            if (!OpenXRRegistryHelper.SetActiveRuntime(questRuntimeJson, ref Logger))
+            {
+                Logger.LogError("Could not set OpenXR runtime to Meta Quest Link. ");
+                Logger.LogError("Set Meta Quest Link as the default OpenXR in the Meta Quest Link app:");
+                Logger.LogError("Settings > General > OpenXR Runtime > Set Meta Quest Link as active runtime. ");
+                Logger.LogError("Run VRCFaceTracking as administrator to automatically set the correct runtime.");
+                goto EndInit;
+            }
+            
 
             qxrResult result = QXR.InitializeSession();
 
@@ -65,12 +63,6 @@ namespace Meta_OpenXR
                     qxrResult.RUNTIME_MISSING => "Runtime does not exist.",
                     _ => $"Session unable to be created: {result}. Module will not be loaded. "
                 });
-
-                if (!Utils.HasAdmin)
-                {
-                    Logger.LogInformation("Please ensure that Quest Link running and is set as the active OpenXR runtime");
-                    Logger.LogInformation("Or run VRCFaceTracking as administrator to enable automatic runtime switching.");
-                }
 
                 goto EndInit;
             }
@@ -90,8 +82,6 @@ namespace Meta_OpenXR
             gazes.time = 10000000;
 
             EndInit:
-            ResetRuntime();
-
             return faceSlots;
         }
 
@@ -273,7 +263,6 @@ namespace Meta_OpenXR
 
         public override void Teardown()
         {
-            SetRuntimeToQuest();
             QXR.DestroyFaceTracker();
             QXR.DestroyEyeTracker();
             QXR.CloseSession();

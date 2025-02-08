@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Security;
+using VRCFaceTracking;
 
 public class OpenXRRegistryHelper : Process
 {
@@ -10,63 +12,72 @@ public class OpenXRRegistryHelper : Process
     {
         string availableRuntimesKeyPath = @"SOFTWARE\Khronos\OpenXR\1\AvailableRuntimes";
 
-        using (RegistryKey key = Registry.LocalMachine.OpenSubKey(availableRuntimesKeyPath))
+        try
         {
-            if (key != null)
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(availableRuntimesKeyPath))
             {
-                logger.LogInformation($"{key.Name}");
-                string[] runtimeValues = key.GetValueNames();
-
-                string desiredRuntimePath = null;
-                foreach (string value in runtimeValues)
+                if (key != null)
                 {
-                    if (value.Contains(desiredRuntime))
-                    {
-                        desiredRuntimePath = value;
-                        break;
-                    }
-                }
+                    logger.LogInformation($"{key.Name}");
+                    string[] runtimeValues = key.GetValueNames();
 
-                if (desiredRuntimePath != null)
-                {
-                    string activeRuntimeKeyPath = @"SOFTWARE\Khronos\OpenXR\1";
-                    using (RegistryKey activeRuntimeKey = Registry.LocalMachine.OpenSubKey(activeRuntimeKeyPath, true))
+                    string desiredRuntimePath = null;
+                    foreach (string value in runtimeValues)
                     {
-                        if (activeRuntimeKey != null)
+                        if (value.Contains(desiredRuntime))
                         {
-                            originalActiveRuntime = (string)activeRuntimeKey.GetValue("ActiveRuntime");
-                            logger.LogInformation($"Stored original runtime: {originalActiveRuntime}");
-
-                            activeRuntimeKey.SetValue("ActiveRuntime", desiredRuntimePath);
-                            logger.LogInformation($"Set active runtime to: {desiredRuntimePath}");
-                            return true;
+                            desiredRuntimePath = value;
+                            break;
                         }
-                        else logger.LogInformation($"activeRuntimeKey null");
+                    }
+
+                    if (desiredRuntimePath != null)
+                    {
+                        string activeRuntimeKeyPath = @"SOFTWARE\Khronos\OpenXR\1";
+                        using (RegistryKey activeRuntimeKey = Registry.LocalMachine.OpenSubKey(activeRuntimeKeyPath, Utils.HasAdmin))
+                        {
+                            if (activeRuntimeKey != null)
+                            {
+                                originalActiveRuntime = (string)activeRuntimeKey.GetValue("ActiveRuntime");
+                                logger.LogInformation($"Stored original runtime: {originalActiveRuntime}");
+
+                                if (originalActiveRuntime.Contains(desiredRuntime))
+                                    return true;
+                                else if (!Utils.HasAdmin)
+                                    return false;
+
+                                activeRuntimeKey.SetValue("ActiveRuntime", desiredRuntimePath);
+                                logger.LogInformation($"Set active runtime to: {desiredRuntimePath}");
+                                return true;
+                            }
+                            else logger.LogInformation($"activeRuntimeKey null");
+                        }
                     }
                 }
             }
-            else logger.LogInformation($"key null");
         }
-
-        logger.LogInformation("cry");
-
+        catch (Exception e)
+        {
+        }
+        
         return false;
     }
 
     public static void RestoreOriginalActiveRuntime(ref ILogger logger)
     {
-        if (originalActiveRuntime != null)
-        {
-            string activeRuntimeKeyPath = @"SOFTWARE\Khronos\OpenXR\1";
-            using (RegistryKey activeRuntimeKey = Registry.LocalMachine.OpenSubKey(activeRuntimeKeyPath, true))
+        if (Utils.HasAdmin)
+            if (originalActiveRuntime != null)
             {
-                if (activeRuntimeKey != null)
+                string activeRuntimeKeyPath = @"SOFTWARE\Khronos\OpenXR\1";
+                using (RegistryKey activeRuntimeKey = Registry.LocalMachine.OpenSubKey(activeRuntimeKeyPath, true))
                 {
-                    // Restore the original ActiveRuntime
-                    activeRuntimeKey.SetValue("ActiveRuntime", originalActiveRuntime);
-                    logger.LogInformation($"Restored {originalActiveRuntime}");
+                    if (activeRuntimeKey != null)
+                    {
+                        // Restore the original ActiveRuntime
+                        activeRuntimeKey.SetValue("ActiveRuntime", originalActiveRuntime);
+                        logger.LogInformation($"Restored {originalActiveRuntime}");
+                    }
                 }
             }
-        }
     }
 }
